@@ -42,8 +42,8 @@ int main() {
 	const char* dns_resolver_ip = DNS_RES_IP;
 	struct in_addr ipv4_binary;
 
-	if (inet_pton(AF_INET, dns_resolver_ip, &ipv4_binary) == -1) {
-		perror("Error occurred with inet_pton()");
+	if (inet_pton(AF_INET, dns_resolver_ip, &ipv4_binary) != 1) {
+		std::cerr << "Error occurred with inet_pton()\n";
 		return 1;
 	}
 
