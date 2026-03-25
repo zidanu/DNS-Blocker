@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <unordered_set>
+#include<fstream>
 
 #include "packet_parser.cpp"
 
@@ -12,7 +13,71 @@
 #define DNS_RESOLVER_PORT 53
 #define DNS_RES_IP "8.8.8.8"
 
-int main() {
+std::unordered_set<std::string> blocklist = {};
+
+void load_blocklist(std::unordered_set<std::string> &block_list, std::ifstream &file) {
+	std::string line;
+	while (std::getline(file, line)) {
+		if (line[0] >= 48 && line[0] <= 57) {
+			std::string domain;
+
+			bool passed_ip_addr = false;
+			bool reached_domain_name = false;
+
+			int i = 0;
+			while (!passed_ip_addr) {
+				i++;
+				if (line[i] == ' ' || line[i] == '\t') {
+					passed_ip_addr = true;
+				}
+			}
+
+			while (!reached_domain_name && passed_ip_addr) {
+				i++;
+				if (line[i] != ' ' && line[i] != '\t') {
+					reached_domain_name = true;
+				}
+			}
+
+			while (reached_domain_name && i != line.length()) {
+				if (line[i] != ' ' && line[i] != '\t') {
+					domain.push_back(line[i]);
+				}
+				if (i == (line.length()-1) || line[i] == ' ' || line[i] == '\t') {
+					if (domain != "") {
+						block_list.insert(domain);
+						domain = "";
+					}
+				}
+				i++;
+			}
+		} else {
+			continue;
+		}
+	}
+	file.close();
+}
+
+int main(int argc, char* argv[]) {
+	if (argc != 2) {
+		std::cerr << "Proper usage: ./dns_foward blocklist\n";
+		return 1;
+	}
+
+	std::ifstream block_file(argv[1]);
+	if (!block_file.is_open()) {
+		std::cerr << "Error occurred with std::ifstream object initialization\n";
+		return 1;
+	}
+
+	load_blocklist(blocklist, block_file);
+
+	// std::cout << "Block list:" << '\n';
+	//
+	// for (const auto& elem : block_list) {
+	// 	std::cout << elem << elem.length() << '\n';
+	// }
+	//
 	int fd_client_socket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd_client_socket == -1) {
 		perror("Error occurred with socket()");
@@ -57,8 +122,6 @@ int main() {
 	rsolvr_addr.sin_family = AF_INET;
 	rsolvr_addr.sin_addr.s_addr = ipv4_binary.s_addr;
 
-	std::unordered_set<std::string> block_list = {"google.com", "abc.com"};
-
 	while (true) {
 		struct sockaddr_in client_addr;
 		socklen_t client_len = sizeof(client_addr);
@@ -75,9 +138,8 @@ int main() {
 		std::cout << "Received " << n << " bytes\n";
 
 		std::string domain = parse_domain_from_query(buf, 12);
-		if (block_list.find(domain) != block_list.end()) {
+		if (blocklist.find(domain) != blocklist.end()) {
 			int cutoff = deny_domain(buf);
-			std::cout << cutoff << '\n';
 			if (sendto(fd_client_socket, buf, cutoff, 0, (struct sockaddr*) &client_addr, client_len) == -1) {
 				perror("Error occurred with sendto()");
 				break;
