@@ -69,5 +69,5 @@ Testing/
 .cache/
 
 
-echo_server
-dns_forward
+dns_blocker
+blocklist_file
