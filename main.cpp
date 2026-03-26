@@ -8,6 +8,7 @@
 #include<fstream>
 
 #include "packet_parser.cpp"
+#include "blocklist.cpp"
 
 #define PORT 6464
 #define DNS_RESOLVER_PORT 53
@@ -15,52 +16,9 @@
 
 std::unordered_set<std::string> blocklist = {};
 
-void load_blocklist(std::unordered_set<std::string> &block_list, std::ifstream &file) {
-	std::string line;
-	while (std::getline(file, line)) {
-		if (line[0] >= 48 && line[0] <= 57) {
-			std::string domain;
-
-			bool passed_ip_addr = false;
-			bool reached_domain_name = false;
-
-			int i = 0;
-			while (!passed_ip_addr) {
-				i++;
-				if (line[i] == ' ' || line[i] == '\t') {
-					passed_ip_addr = true;
-				}
-			}
-
-			while (!reached_domain_name && passed_ip_addr) {
-				i++;
-				if (line[i] != ' ' && line[i] != '\t') {
-					reached_domain_name = true;
-				}
-			}
-
-			while (reached_domain_name && i != line.length()) {
-				if (line[i] != ' ' && line[i] != '\t') {
-					domain.push_back(line[i]);
-				}
-				if (i == (line.length()-1) || line[i] == ' ' || line[i] == '\t') {
-					if (domain != "") {
-						block_list.insert(domain);
-						domain = "";
-					}
-				}
-				i++;
-			}
-		} else {
-			continue;
-		}
-	}
-	file.close();
-}
-
 int main(int argc, char* argv[]) {
 	if (argc != 2) {
-		std::cerr << "Proper usage: ./dns_foward blocklist\n";
+		std::cerr << "Proper usage: ./dns_blocker blocklist\n";
 		return 1;
 	}
 
