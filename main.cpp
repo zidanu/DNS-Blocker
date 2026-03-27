@@ -5,7 +5,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <unordered_set>
-#include<fstream>
+#include <fstream>
+#include <csignal>
 
 #include "packet_parser.cpp"
 #include "blocklist.cpp"
@@ -15,6 +16,14 @@
 #define DNS_RES_IP "8.8.8.8"
 
 std::unordered_set<std::string> blocklist = {};
+char* blockfile_path;
+
+void signal_handler(int signalNum) {
+	if (signalNum == SIGUSR1) {
+		update_blocklist(blocklist, blockfile_path);
+	}
+}
+
 
 int main(int argc, char* argv[]) {
 	if (argc != 2) {
@@ -22,7 +31,9 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	std::ifstream block_file(argv[1]);
+	blockfile_path = argv[1];
+
+	std::ifstream block_file(blockfile_path);
 	if (!block_file.is_open()) {
 		std::cerr << "Error occurred with std::ifstream object initialization\n";
 		return 1;
@@ -30,12 +41,6 @@ int main(int argc, char* argv[]) {
 
 	load_blocklist(blocklist, block_file);
 
-	// std::cout << "Block list:" << '\n';
-	//
-	// for (const auto& elem : block_list) {
-	// 	std::cout << elem << elem.length() << '\n';
-	// }
-	//
 	int fd_client_socket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd_client_socket == -1) {
 		perror("Error occurred with socket()");
@@ -79,6 +84,8 @@ int main(int argc, char* argv[]) {
 	rsolvr_addr.sin_port = htons(DNS_RESOLVER_PORT);
 	rsolvr_addr.sin_family = AF_INET;
 	rsolvr_addr.sin_addr.s_addr = ipv4_binary.s_addr;
+
+	std::signal(SIGUSR1, signal_handler);
 
 	while (true) {
 		struct sockaddr_in client_addr;
